@@ -1,4 +1,4 @@
-# Monero
+<h1 align="center">ELECTRUM MONERO (XMR)</h1>
 
 [![Language](https://img.shields.io/badge/language-C%2B%2B17-111827?style=for-the-badge)](./CMakeLists.txt)
 [![Build](https://img.shields.io/badge/build-CMake-1f2937?style=for-the-badge)](./CMakeLists.txt)
@@ -44,8 +44,3 @@ cmake --build build -j
 ./build/bin/monerod
 ./build/bin/monero-wallet-cli
 ```
-
-## Why This README Is Lean
-
-Upstream Monero already has extensive documentation.
-This front page keeps only the essentials: what the repository is, where the important code lives, and how to build it fast.
