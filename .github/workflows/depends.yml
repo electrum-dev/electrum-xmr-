@@ -1,0 +1,134 @@
+name: ci/gh-actions/depends
+
+on:
+  push:
+    paths-ignore:
+      - 'docs/**'
+      - '**/README.md'
+  pull_request:
+    paths-ignore:
+      - 'docs/**'
+      - '**/README.md'
+
+env:
+  APT_SET_CONF: |
+    tee -a /etc/apt/apt.conf.d/80-custom << EOF
+    Acquire::Retries "3";
+    Acquire::http::Timeout "120";
+    Acquire::ftp::Timeout "120";
+    EOF
+  CCACHE_SETTINGS: |
+        ccache --max-size=150M
+        ccache --set-config=compression=true
+  USE_DEVICE_TREZOR_MANDATORY: ON
+
+jobs:
+  build-cross:
+    runs-on: ubuntu-latest
+    container:
+      image: ubuntu:20.04
+      env:
+        DEBIAN_FRONTEND: noninteractive
+        CCACHE_TEMPDIR: /tmp/.ccache-temp
+    strategy:
+      fail-fast: false
+      matrix:
+        toolchain:
+          - name: "RISCV 64bit"
+            host: "riscv64-linux-gnu"
+            rust_host: "riscv64gc-unknown-linux-gnu"
+            packages: "g++-riscv64-linux-gnu"
+          - name: "ARM v8"
+            host: "aarch64-linux-gnu"
+            rust_host: "aarch64-unknown-linux-gnu"
+            packages: "g++-aarch64-linux-gnu"
+          - name: "i686 Linux"
+            host: "i686-pc-linux-gnu"
+            rust_host: "i686-unknown-linux-gnu"
+            packages: "g++-multilib"
+          - name: "Win64"
+            host: "x86_64-w64-mingw32"
+            rust_host: "x86_64-pc-windows-gnu"
+            packages: "g++-mingw-w64-x86-64"
+          - name: "x86_64 Linux"
+            host: "x86_64-unknown-linux-gnu"
+            rust_host: "x86_64-unknown-linux-gnu"
+          - name: "Cross-Mac x86_64"
+            host: "x86_64-apple-darwin"
+            rust_host: "x86_64-apple-darwin"
+            packages: "clang-18 lld-18"
+          - name: "Cross-Mac aarch64"
+            host: "arm64-apple-darwin"
+            rust_host: "aarch64-apple-darwin"
+            packages: "clang-18 lld-18"
+          - name: "x86_64 Freebsd"
+            host: "x86_64-unknown-freebsd"
+            rust_host: "x86_64-unknown-freebsd"
+            packages: "clang"
+          - name: "ARMv7 Android"
+            host: "arm-linux-android"
+            rust_host: "armv7-linux-androideabi"
+            packages: "unzip"
+          - name: "ARMv8 Android"
+            host: "aarch64-linux-android"
+            rust_host: "aarch64-linux-android"
+            packages: "unzip"
+    name: ${{ matrix.toolchain.name }}
+    steps:
+    - name: set apt conf
+      run: ${{env.APT_SET_CONF}}
+    - name: install dependencies
+      run: apt update; apt -y install build-essential cmake pkg-config curl git ca-certificates ccache ${{ matrix.toolchain.packages }}
+    - name: install rust
+      # We can't use the latest Rust due to LLVM 17 not working with old `ld`s (such as in Ubuntu 20.04) for RISC-V
+      # We could update ld (a pain), update Ubuntu (requires a large amount of changes), or downgrade Rust
+      # We can't use Rust 1.70 due to LLVM 16 requiring ld >= 2.40 when building for Windows
+      run: |
+          curl -O https://static.rust-lang.org/rustup/archive/1.27.1/x86_64-unknown-linux-gnu/rustup-init
+          echo "6aeece6993e902708983b209d04c0d1dbb14ebb405ddb87def578d41f920f56d rustup-init" | sha256sum -c
+          chmod +x rustup-init
+          ./rustup-init -y --default-toolchain 1.69 --target ${{ matrix.toolchain.rust_host }}
+          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+    - name: configure git
+      run: git config --global --add safe.directory '*'
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+        submodules: recursive
+# Most volatile cache
+    - name: ccache
+      uses: actions/cache@v4
+      with:
+        path: ~/.ccache
+        key: ccache-${{ matrix.toolchain.host }}-${{ github.sha }}
+        restore-keys: ccache-${{ matrix.toolchain.host }}-
+# Less volatile cache
+    - name: depends cache
+      uses: actions/cache@v4
+      with:
+        path: contrib/depends/built
+        key: depends-${{ matrix.toolchain.host }}-${{ hashFiles('contrib/depends/packages/*') }}
+        restore-keys: |
+          depends-${{ matrix.toolchain.host }}-${{ hashFiles('contrib/depends/packages/*') }}
+          depends-${{ matrix.toolchain.host }}-
+    - name: prepare w64-mingw32
+      if: ${{ matrix.toolchain.host == 'x86_64-w64-mingw32' }}
+      run: |
+        update-alternatives --set ${{ matrix.toolchain.host }}-g++ $(which ${{ matrix.toolchain.host }}-g++-posix)
+        update-alternatives --set ${{ matrix.toolchain.host }}-gcc $(which ${{ matrix.toolchain.host }}-gcc-posix)
+    - name: prepare apple-darwin
+      if: ${{ matrix.toolchain.host == 'x86_64-apple-darwin' || matrix.toolchain.host == 'arm64-apple-darwin' }}
+      run: |
+        echo "/usr/lib/llvm-18/bin/" >> $GITHUB_PATH
+    - uses: ./.github/actions/set-make-job-count
+    - name: build
+      run: |
+        ${{env.CCACHE_SETTINGS}}
+        make depends target=${{ matrix.toolchain.host }} -j${{env.MAKE_JOB_COUNT}}
+    - uses: actions/upload-artifact@v4
+      if: ${{ matrix.toolchain.host == 'x86_64-w64-mingw32' || matrix.toolchain.host == 'x86_64-apple-darwin' || matrix.toolchain.host == 'arm64-apple-darwin' || matrix.toolchain.host == 'x86_64-unknown-linux-gnu' }}
+      with:
+        name: ${{ matrix.toolchain.name }}
+        path: |
+          build/${{ matrix.toolchain.host }}/release/bin/monero-wallet-cli*
+          build/${{ matrix.toolchain.host }}/release/bin/monerod*
