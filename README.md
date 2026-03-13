@@ -44,3 +44,7 @@ cmake --build build -j
 ./build/bin/monerod
 ./build/bin/monero-wallet-cli
 ```
+
+<p align="center">
+  <img src="./assets/xmr_2.png" alt="Electrum Monero XMR" width="280">
+</p>
