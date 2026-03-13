@@ -22,27 +22,27 @@ It is not a thin client and not a UI wrapper. It is the main implementation laye
 | Core code | [`src/`](/home/frank/githubs/GITS/electrum-xmr-/src) |
 | Docs and tooling | [`docs/`](/home/frank/githubs/GITS/electrum-xmr-/docs), [`contrib/`](/home/frank/githubs/GITS/electrum-xmr-/contrib), [`utils/`](/home/frank/githubs/GITS/electrum-xmr-/utils) |
 
-## What Is Here
+## Inside The Tree
 
-- `src/daemon/` for node and daemon-side logic
-- `src/simplewallet/` for the command-line wallet
-- `src/wallet/` for wallet internals and RPC wallet service
-- `tests/` for regression and behavior coverage
-- `external/` and `.gitmodules` for bundled dependency surface
+`src/daemon/` -> node process and daemon flow  
+`src/simplewallet/` -> terminal wallet layer  
+`src/wallet/` -> wallet engine and RPC side  
+`tests/` -> regression and behavior coverage  
+`external/` + `.gitmodules` -> bundled dependency surface
 
-## Quick Build
+## Build Path
 
-```bash
-git submodule update --init --recursive
-cmake -S . -B build
-cmake --build build -j
+```text
+sync deps   -> git submodule update --init --recursive
+configure   -> cmake -S . -B build
+compile     -> cmake --build build -j
 ```
 
-## Quick Run
+## First Launch
 
-```bash
-./build/bin/monerod
-./build/bin/monero-wallet-cli
+```text
+node        -> ./build/bin/monerod
+wallet      -> ./build/bin/monero-wallet-cli
 ```
 
 <p align="center">
