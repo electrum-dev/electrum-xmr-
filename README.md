@@ -45,6 +45,12 @@ node        -> ./build/bin/monerod
 wallet      -> ./build/bin/monero-wallet-cli
 ```
 
+## Screenshot
+
+<p align="center">
+  <img src="./screen/photo_2026-03-14_15-27-41.jpg" alt="Electrum Monero screenshot" width="720">
+</p>
+
 <p align="center">
   <img src="./assets/xmr_2.png" alt="Electrum Monero XMR" width="280">
 </p>
